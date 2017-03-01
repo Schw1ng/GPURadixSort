@@ -45,7 +45,6 @@ inline void PrefixLocal(__local uint* inout, int p_length, int numThreads){
     }
 }
 
-// fuck this overload
 inline void PrefixGlobal(__global uint* inout, int p_length, int numThreads){
     __private uint glocalID = get_local_id(0);
     __private int inc = 2;
@@ -74,12 +73,6 @@ inline void PrefixGlobal(__global uint* inout, int p_length, int numThreads){
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 }
-
-
-
-
-
-
 
 
 
