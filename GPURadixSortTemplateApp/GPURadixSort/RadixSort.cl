@@ -112,7 +112,7 @@ __kernel void SetupAndCount(	__global  uint* cellIdIn,
             if(gLocalId % dConst.R == tmpIdx){
                 counters[ (actRadix * countersPerRadix)  +counterGroupOffset+ threadGroup ]++;
             }
-            barrier(CLK_LOCAL_MEM_FENCE);
+      barrier(CLK_GLOBAL_MEM_FENCE);
         }
 	}
 }
@@ -160,15 +160,13 @@ __kernel void SumIt(	__global uint* cellIdIn,
         }
 
         // Errechnete Prefixsumme zurück in den global memory schreiben
-        barrier(CLK_LOCAL_MEM_FENCE);
+        barrier(CLK_GLOBAL_MEM_FENCE);
         numIter = 0;
         for(int j = (actRadix * countersPerRadix) + gLocalId ; j < ((actRadix+1) * countersPerRadix); j+= dConst.numThreadsPerBlock){
             counters[j] = groupcnt[gLocalId + dConst.numThreadsPerBlock * numIter++];
             //numIter += dConst.numThreadsPerBlock;
         }
-
-
-
+        barrier(CLK_GLOBAL_MEM_FENCE);
         actRadix++;
     }
 }
@@ -186,29 +184,18 @@ __kernel void ReorderingKeysOnly(    __global uint* cellIdIn,
 {
     int globalId = get_global_id(0);
     __private uint gLocalId = get_local_id(0);
-    __private uint gBlockId = get_group_id(0);
-
-
-    __private uint threadGroup= gLocalId / dConst.R;
-
-
-    __private uint actRadix = dConst.numRadicesPerBlock * gBlockId;
-    __private uint countersPerRadix = dConst.numGroupsPerBlock * dConst.numBlocks;
+    const uint gBlockId = get_group_id(0);
+    const uint threadGroup= gLocalId / dConst.R;
+    const uint threadGroupId= gLocalId % dConst.R;
+    const uint actRadix = dConst.numRadicesPerBlock * gBlockId;
+    const uint countersPerRadix = dConst.numGroupsPerBlock * dConst.numBlocks;
 
 
     __private int radixCounterOffset = actRadix * countersPerRadix;
 
     // erst abschließen der radix summierung
     __private  uint blockidx ; 
-    for(int i = 0 ; i< dConst.numRadicesPerBlock ; i++){
-        for(uint   blockidx =gLocalId;  
-                    blockidx <  countersPerRadix ; 
-                     blockidx+= dConst.numThreadsPerBlock){
-            // The Num_Groups counters of the radix are read from global memory to shared memory.
-            // Jeder Thread liest die Counter basierend auf der groupId aus
-            localCounters[ i* countersPerRadix  +  blockidx] = counters[radixCounterOffset +  i* countersPerRadix  +  blockidx];
-        }
-    }
+
 
     // Read radix prefixes to localMemory
     for(int i = gLocalId ; i< dConst.numRadices ; i+= dConst.numThreadsPerBlock){
@@ -218,29 +205,32 @@ __kernel void ReorderingKeysOnly(    __global uint* cellIdIn,
     barrier(CLK_LOCAL_MEM_FENCE);
     PrefixLocal(localPrefix, dConst.numRadices, dConst.numThreadsPerBlock);
     barrier(CLK_LOCAL_MEM_FENCE);
- 
 
 
 
-
+    // Load (groups per block * radices) counters, i.e., the block column
+  for (uint i = threadGroupId; i < dConst.numRadices; i+= dConst.numThreadsPerGroup) {
+    localCounters[threadGroup+ dConst.numGroupsPerBlock * i] = counters[countersPerRadix * i + gBlockId * dConst.numGroupsPerBlock + threadGroup] + localPrefix[i];
+    
+  }
+  /*  for(int i = 0 ; i< dConst.numRadicesPerBlock ; i++){
+        for(uint   blockidx =gLocalId;  
+                    blockidx <  countersPerRadix ; 
+                     blockidx+= dConst.numThreadsPerBlock){
+            // The Num_Groups counters of the radix are read from global memory to shared memory.
+            // Jeder Thread liest die Counter basierend auf der groupId aus
+            localCounters[ i* countersPerRadix  +  blockidx] = counters[radixCounterOffset +  i* countersPerRadix  +  blockidx];
+        }
+    }
     // Die Präfixsumme des Radixe auf alle subcounter der radixes addieren
   for(int i = 0 ; i< dConst.numRadicesPerBlock ; i++){
         int numIter = 0;
-        //for(int j = ((actRadix+i) * dConst.numBlocks * dConst.numGroupsPerBlock) + localId ; j < ((dConst.numRadicesPerBlock * gBlockId + 1) * dConst.numBlocks * dConst.numGroupsPerBlock); j+= dConst.numThreadsPerBlock){
         for(int j =  gLocalId ; j < countersPerRadix; j+= dConst.numThreadsPerBlock){
-            //groupcnt[gLocalId + dConst.numThreadsPerBlock * numIter++] = counters[j];
-            //if(gLocalId == 0 && gBlockId ==0 && i==0 && j == gLocalId )
             localCounters[ i* countersPerRadix  +  j] += localPrefix[actRadix+i];
 
         }
        // barrier(CLK_LOCAL_MEM_FENCE);
     }
-    
-
-
-
-
-
     // Zurückschreiben der Radixe mit entsprechedem offset.
     for(int i = 0 ; i< dConst.numRadicesPerBlock ; i++){
         for(uint   blockidx =gLocalId;  
@@ -252,26 +242,24 @@ __kernel void ReorderingKeysOnly(    __global uint* cellIdIn,
         }
     }
 
-
+*/
 
     barrier(CLK_LOCAL_MEM_FENCE);
-
-
-
     __private int actBlock = gBlockId * dConst.numGroupsPerBlock * dConst.numElementsPerGroup ;
     __private int actBlockCounter = gBlockId * dConst.numGroupsPerBlock  ;
-
     __private int actGroup = (gLocalId / dConst.R ) * dConst.numElementsPerGroup;
 
     __private  uint idx = actBlock + actGroup +  gLocalId % dConst.R;
     int boundary = actBlock+ actGroup +  dConst.numElementsPerGroup;
-    boundary = (actBlock+ actGroup +  dConst.numElementsPerGroup < dConst.numTotalElements)? boundary : dConst.numTotalElements;
+    boundary = (idx +  dConst.numElementsPerGroup < dConst.numTotalElements)? boundary : dConst.numTotalElements;
     for(;idx <   boundary ; idx += dConst.numThreadsPerGroup){
         uint tmpRdx = (cellIdIn[idx] >> bitOffset) & dConst.bitMask;
         //uint outputIdx = counters[actRadix * countersPerRadix + gBlockId * dConst.numGroupsPerBlock + threadGroup]++;
         for(uint tmpIdx = 0 ; tmpIdx < dConst.R; tmpIdx++){
-            if(gLocalId % dConst.R == tmpIdx){
-                cellIdOut[counters[tmpRdx * countersPerRadix + actBlockCounter+ threadGroup]++] = cellIdIn[idx];
+            if(threadGroupId == tmpIdx){
+
+                cellIdOut[localCounters[tmpRdx * dConst.numGroupsPerBlock + threadGroup]] = cellIdIn[idx];
+                localCounters[tmpRdx * dConst.numGroupsPerBlock + threadGroup];
                 //cellIdOut[idx] = gLocalId+1;
 
             }

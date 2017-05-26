@@ -1,6 +1,5 @@
 D:\Projects\GPUSort\GPURadixSortTemplateApp\GPURadixSort\bin\Debug\GPURadixSort.dll
 D:\Projects\GPUSort\GPURadixSortTemplateApp\GPURadixSort\bin\Debug\GPURadixSort.pdb
 D:\Projects\GPUSort\GPURadixSortTemplateApp\GPURadixSort\bin\Debug\OpenCL.Net.dll
-D:\Projects\GPUSort\GPURadixSortTemplateApp\GPURadixSort\obj\Debug\GPURadixSort.csprojResolveAssemblyReference.cache
 D:\Projects\GPUSort\GPURadixSortTemplateApp\GPURadixSort\obj\Debug\GPURadixSort.dll
 D:\Projects\GPUSort\GPURadixSortTemplateApp\GPURadixSort\obj\Debug\GPURadixSort.pdb

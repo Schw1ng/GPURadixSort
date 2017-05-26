@@ -17,7 +17,6 @@ namespace GPURadixSortTemplateApp {
         private static Context cxGPUContext;
         private static CommandQueue cqCommandQueue;
         private static GPURadixSort sort;
-
         private static void ContextNotify(string errInfo, byte[] data, IntPtr cb, IntPtr userData) {
             Console.WriteLine("OpenCL Notification: " + errInfo);
         }
@@ -43,10 +42,13 @@ namespace GPURadixSortTemplateApp {
                     var vendor = Cl.GetDeviceInfo(device, DeviceInfo.Vendor, out error);
                     var name = Cl.GetDeviceInfo(device, DeviceInfo.Name, out error);
                     var worksize = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkGroupSize, out error);
+                    var maxCU = Cl.GetDeviceInfo(device, DeviceInfo.MaxComputeUnits, out error);
+                    
                     Console.WriteLine("Vendor: " + vendor + " , " + name);
 
                     Console.WriteLine("Device: " + device.GetType());
                     Console.WriteLine("Workgroupsize: " + worksize.CastTo<long>());
+                    Console.WriteLine("CUS: " + maxCU.CastTo<int>());
                     devicesList.Add(device);
                 }
             }
@@ -83,7 +85,7 @@ namespace GPURadixSortTemplateApp {
             // Simple sortTest
             List<int> numOfSortValues = new List<int>();
             for (int i = 0; i < 2; i++) {
-                numOfSortValues.Add(50000000);
+                numOfSortValues.Add(20);
             }
 
             foreach (var numElements in numOfSortValues) {
@@ -193,15 +195,19 @@ namespace GPURadixSortTemplateApp {
 //                CheckErr(error, "Cl.EnqueueReadBuffer");
 
 
-//                Array.Sort(testKeys);
-//                Console.WriteLine("Sort finished");
-//                for (uint i = 0; i < testKeys.Length; i++) {
-//                    if (testKeysOutput[i] != testKeys[i]) {
-//                        Console.WriteLine("keys not sorted");
-//                    }
-//                    ;
-//                    //  Assert.True(testValuesOutput[i] == (uint)testKeys[i], "values not sorted");
-//                }
+                Array.Sort(testKeys);
+                Console.WriteLine("Sort finished");
+                for (uint i = 0; i < testKeys.Length; i++) {
+                    if (testKeysOutput[i] != testKeys[i]) {
+                        Console.WriteLine("radixoutput{0} = {1} false", testKeysOutput[i] , testKeys[i]);
+                    }
+                    else {
+                        Console.WriteLine("radixoutput{0} = {1} true", testKeysOutput[i], testKeys[i]);
+
+                    }
+                    ;
+                    //  Assert.True(testValuesOutput[i] == (uint)testKeys[i], "values not sorted");
+                }
                 // Assert.False(testKeys == testValues, "did not work");
                 Cl.ReleaseMemObject(cl_KeyMem);
                 Cl.ReleaseMemObject(cl_ValueMem);
